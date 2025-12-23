@@ -27,8 +27,13 @@ document.addEventListener("DOMContentLoaded", () => {
           participantsHTML = `
             <div class="participants-section">
               <strong>Participants (${details.participants.length}):</strong>
-              <ul class="participants-list">
-                ${details.participants.map(email => `<li>${email}</li>`).join("")}
+              <ul class="participants-list no-bullets">
+                ${details.participants.map(email => `
+                  <li>
+                    <span class="participant-email">${email}</span>
+                    <span class="delete-participant" title="Remove" data-activity="${encodeURIComponent(name)}" data-email="${encodeURIComponent(email)}">&#128465;</span>
+                  </li>
+                `).join("")}
               </ul>
             </div>
           `;
@@ -56,6 +61,31 @@ document.addEventListener("DOMContentLoaded", () => {
         option.value = name;
         option.textContent = name;
         activitySelect.appendChild(option);
+
+        // Add delete event listeners after rendering
+        setTimeout(() => {
+          const deleteIcons = activityCard.querySelectorAll('.delete-participant');
+          deleteIcons.forEach(icon => {
+            icon.addEventListener('click', async (e) => {
+              const activityName = decodeURIComponent(icon.getAttribute('data-activity'));
+              const email = decodeURIComponent(icon.getAttribute('data-email'));
+              if (confirm(`Remove ${email} from ${activityName}?`)) {
+                try {
+                  // Use activityName as-is (not encoded) to match backend keys
+                  const response = await fetch(`/activities/${activityName}/unregister?email=${encodeURIComponent(email)}`, { method: 'DELETE' });
+                  const result = await response.json();
+                  if (response.ok) {
+                    fetchActivities();
+                  } else {
+                    alert(result.detail || 'Failed to remove participant.');
+                  }
+                } catch (err) {
+                  alert('Failed to remove participant.');
+                }
+              }
+            });
+          });
+        }, 0);
       });
     } catch (error) {
       activitiesList.innerHTML = "<p>Failed to load activities. Please try again later.</p>";
@@ -84,6 +114,7 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
+        fetchActivities();
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";

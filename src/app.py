@@ -5,7 +5,7 @@ A super simple FastAPI application that allows students to view and sign up
 for extracurricular activities at Mergington High School.
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 import os
@@ -76,6 +76,94 @@ activities = {
         "participants": ["john@mergington.edu", "olivia@mergington.edu"]
     }
 }
+
+
+@app.get("/")
+def root():
+    return RedirectResponse(url="/static/index.html")
+
+
+@app.get("/activities")
+def get_activities():
+    return activities
+
+
+@app.post("/activities/{activity_name}/signup")
+def signup_for_activity(activity_name: str, email: str):
+    """Sign up a student for an activity"""
+    # Validate activity exists
+    if activity_name not in activities:
+        raise HTTPException(status_code=404, detail="Activity not found")
+
+    # Get the specific activity
+    activity = activities[activity_name]
+
+    # Add student
+    # Validate student is not already signed up
+    if email in activity["participants"]:
+        raise HTTPException(status_code=400, detail="Student already signed up for this activity")
+    activity["participants"].append(email)
+    return {"message": f"Signed up {email} for {activity_name}"}
+
+
+
+@app.get("/")
+def root():
+    return RedirectResponse(url="/static/index.html")
+
+
+@app.get("/activities")
+def get_activities():
+    return activities
+
+
+@app.post("/activities/{activity_name}/signup")
+def signup_for_activity(activity_name: str, email: str):
+    """Sign up a student for an activity"""
+    # Validate activity exists
+    if activity_name not in activities:
+        raise HTTPException(status_code=404, detail="Activity not found")
+
+    # Get the specific activity
+    activity = activities[activity_name]
+
+    # Add student
+    # Validate student is not already signed up
+    if email in activity["participants"]:
+        raise HTTPException(status_code=400, detail="Student already signed up for this activity")
+    activity["participants"].append(email)
+    return {"message": f"Signed up {email} for {activity_name}"}
+
+# Unregister a participant from an activity
+@app.delete("/activities/{activity_name}/unregister")
+def unregister_from_activity(activity_name: str, email: str = Query(...)):
+    """Remove a student from an activity"""
+    from urllib.parse import unquote
+    # Log for debugging
+    print(f"Unregister request: activity_name='{activity_name}', email='{email}'")
+    print(f"Available activities: {list(activities.keys())}")
+    # Try to match activity_name exactly, or by decoded value
+    possible_keys = [activity_name, unquote(activity_name)]
+    key = None
+    for k in possible_keys:
+        if k in activities:
+            key = k
+            break
+    if key is None:
+        # Try case-insensitive and space-insensitive match as fallback
+        for k in activities.keys():
+            if k.replace(' ', '').lower() == activity_name.replace(' ', '').lower() or \
+               k.replace(' ', '').lower() == unquote(activity_name).replace(' ', '').lower():
+                key = k
+                break
+    if key is None:
+        raise HTTPException(status_code=404, detail="Activity not found")
+    activity = activities[key]
+    try:
+        activity["participants"].remove(email)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Participant not found in this activity")
+    return {"message": f"Removed {email} from {key}"}
 
 
 @app.get("/")
